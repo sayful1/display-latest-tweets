@@ -52,25 +52,35 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 			}
 
 			// retrieve cache contents on success
-			$settings = array(
+			$settings         = array(
 				'oauth_access_token'        => isset( $instance['oauth_access_token'] ) ? $instance['oauth_access_token'] : null,
 				'oauth_access_token_secret' => isset( $instance['oauth_access_token_secret'] ) ? $instance['oauth_access_token_secret'] : null,
 				'consumer_key'              => isset( $instance['consumer_key'] ) ? $instance['consumer_key'] : null,
 				'consumer_secret'           => isset( $instance['consumer_secret'] ) ? $instance['consumer_secret'] : null,
 			);
-			$limit    = isset( $instance['update_count'] ) ? intval( $instance['update_count'] ) : 5;
+			$limit            = isset( $instance['update_count'] ) ? intval( $instance['update_count'] ) : 5;
+			$twitter_duration = isset( $instance['twitter_duration'] ) ? intval( $instance['twitter_duration'] ) : 15;
 
 			// Get the tweets.
-			$tweets = $this->twitter_timeline( $settings, $limit );
+			$tweets = $this->twitter_timeline( $settings, $limit, $twitter_duration );
 
 
 			if ( ! empty( $tweets ) ) {
 
 				echo '<ul class="tweets">';
 				foreach ( $tweets as $tweet ) {
+					// Add links to URL and username mention in tweets.
+					$patterns   = array(
+						'@(https?://([-\w\.]+)+(:\d+)?(/([\w/_\.]*(\?\S+)?)?)?)@',
+						'/@([A-Za-z0-9_]{1,15})/'
+					);
+					$replace    = array( '<a href="$1">$1</a>', '<a href="http://twitter.com/$1">@$1</a>' );
+					$text       = preg_replace( $patterns, $replace, $tweet['text'] );
+					$created    = strtotime( $tweet['time'] );
+					$human_time = human_time_diff( $created ) . esc_html__( ' ago', 'display-latest-tweets' );
 					echo '<li class="tweet">';
-					echo $tweet['text'];
-					echo '<span class="tweet-time">' . $tweet['time'] . '</span>';
+					echo $text;
+					echo '<span class="tweet-time">' . $human_time . '</span>';
 					echo '</li>';
 				}
 				echo '</ul>';
@@ -94,6 +104,7 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 		public function form( $instance ) {
 			$title                     = ! empty( $instance['title'] ) ? $instance['title'] : __( 'Latest Tweets', 'display-latest-tweets' );
 			$update_count              = ! empty( $instance['update_count'] ) ? $instance['update_count'] : 5;
+			$twitter_duration          = ! empty( $instance['twitter_duration'] ) ? intval( $instance['twitter_duration'] ) : 15;
 			$oauth_access_token        = ! empty( $instance['oauth_access_token'] ) ? $instance['oauth_access_token'] : '';
 			$oauth_access_token_secret = ! empty( $instance['oauth_access_token_secret'] ) ? $instance['oauth_access_token_secret'] : '';
 			$consumer_key              = ! empty( $instance['consumer_key'] ) ? $instance['consumer_key'] : '';
@@ -115,11 +126,11 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 					<?php esc_attr_e( 'Number of Tweets to Display: ', 'display-latest-tweets' ); ?>
                 </label>
                 <input
-                        type="number"
-                        class="widefat"
+                        type="number" class="widefat" min="1" max="50" step="1"
                         id="<?php echo $this->get_field_id( 'update_count' ); ?>"
                         name="<?php echo $this->get_field_name( 'update_count' ); ?>"
-                        value="<?php echo esc_attr( $update_count ); ?>"/>
+                        value="<?php echo esc_attr( $update_count ); ?>"
+                />
             </p>
             <p>
                 <label for="<?php echo $this->get_field_id( 'consumer_key' ); ?>">
@@ -168,6 +179,20 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
                         name="<?php echo $this->get_field_name( 'oauth_access_token_secret' ); ?>"
                         value="<?php echo esc_attr( $oauth_access_token_secret ); ?>"/>
             </p>
+            <p>
+                <label for="<?php echo $this->get_field_id( 'twitter_duration' ); ?>">
+					<?php esc_attr_e( 'Load new Tweets every: ', 'display-latest-tweets' ); ?>
+                </label>
+                <select class="widefat" id="<?php echo $this->get_field_id( 'twitter_duration' ); ?>"
+                        name="<?php echo $this->get_field_name( 'twitter_duration' ); ?>">
+					<?php
+					foreach ( $this->twitter_duration() as $time => $label ) {
+						$selected = $time == $twitter_duration ? 'selected' : '';
+						echo '<option value="' . $time . '" ' . $selected . '>' . $label . '</option>';
+					}
+					?>
+                </select>
+            </p>
 			<?php
 		}
 
@@ -185,6 +210,7 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 			$instance = array();
 
 			$instance['update_count']              = intval( $new_instance['update_count'] );
+			$instance['twitter_duration']          = intval( $new_instance['twitter_duration'] );
 			$instance['title']                     = wp_strip_all_tags( $new_instance['title'] );
 			$instance['consumer_key']              = wp_strip_all_tags( $new_instance['consumer_key'] );
 			$instance['consumer_secret']           = wp_strip_all_tags( $new_instance['consumer_secret'] );
@@ -202,10 +228,11 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 		 *
 		 * @param array $settings
 		 * @param int $limit
+		 * @param int $twitter_duration
 		 *
 		 * @return array|mixed
 		 */
-		private function twitter_timeline( $settings, $limit ) {
+		private function twitter_timeline( $settings, $limit = 5, $twitter_duration = 15 ) {
 			// Do we have this information in our transients already?
 			$tweets = get_transient( 'display_latest_tweets' );
 
@@ -213,28 +240,31 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 				$twitter_instance = new Twitter_API_WordPress( $settings );
 				$timeline         = (array) $twitter_instance->user_timeline( $limit );
 
-				// Add links to URL and username mention in tweets.
-				$patterns = array(
-					'@(https?://([-\w\.]+)+(:\d+)?(/([\w/_\.]*(\?\S+)?)?)?)@',
-					'/@([A-Za-z0-9_]{1,15})/'
-				);
-				$replace  = array( '<a href="$1">$1</a>', '<a href="http://twitter.com/$1">@$1</a>' );
-
 				foreach ( $timeline as $tweet ) {
-					$text       = preg_replace( $patterns, $replace, $tweet->text );
-					$created    = strtotime( $tweet->created_at );
-					$human_time = human_time_diff( $created ) . esc_html__( ' ago', 'display-latest-tweets' );
-					$tweets[]   = array(
-						'text' => $text,
-						'time' => $human_time,
+					$tweets[] = array(
+						'text' => $tweet->text,
+						'time' => $tweet->created_at,
 					);
 				}
 
-				$transient_expiration = ( 15 * MINUTE_IN_SECONDS );
+				$transient_expiration = ( intval( $twitter_duration ) * MINUTE_IN_SECONDS );
 				set_transient( 'display_latest_tweets', $tweets, $transient_expiration );
 			}
 
 			return $tweets;
+		}
+
+		private function twitter_duration() {
+			return array(
+				'5'    => __( '5 Minutes', 'display-latest-tweets' ),
+				'15'   => __( '15 Minutes', 'display-latest-tweets' ),
+				'30'   => __( '30 Minutes', 'display-latest-tweets' ),
+				'60'   => __( '1 Hour', 'display-latest-tweets' ),
+				'120'  => __( '2 Hours', 'display-latest-tweets' ),
+				'240'  => __( '4 Hours', 'display-latest-tweets' ),
+				'720'  => __( '12 Hours', 'display-latest-tweets' ),
+				'1440' => __( '24 Hours', 'display-latest-tweets' ),
+			);
 		}
 
 		/**

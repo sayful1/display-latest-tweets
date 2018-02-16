@@ -56,6 +56,7 @@ Do you have questions or issues with Display Latest Tweets? [Ask for support her
 
 = 2.1.0 - 2018-02-16 =
 * Feature - Add transient option replacing cache option to improve performance.
+* Add - Add transient duration option.
 * Dev - Update Twitter_API_WordPress core code.
 * Dev - Update Display_Latest_Tweets_Widget core code.
 
