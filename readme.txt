@@ -1,13 +1,13 @@
 === Display Latest Tweets ===
 Contributors: sayful
-Tags: tweets, twitter tweets, widget, twitter user timeline, twitter follow button, follow, follow button, sharing, social, social plugin, social sharing
+Tags: twitter, tweets, twitter tweets, widget, twitter timeline
 Requires at least: 4.0
 Tested up to: 4.9
 Stable tag: 2.1.0
-License: GPLv2 or later
-License URI: http://www.gnu.org/licenses/gpl-2.0.html
+License: GPLv3
+License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
-A widget that displays your latest tweets from your twitter account. This plugin is compatible with the new Twitter API 1.1
+A widget that displays your latest tweets from your twitter account using Twitter API 1.1
 
 == Description ==
 
@@ -16,9 +16,11 @@ Connect your Twitter account to this plugin and the widget will display your lat
 = Usages =
 
 1. At first, Install and activate the plugin.
-2. Go to `Dashboard >> Appearance >> Widgets` and you will find a widget `Display Latest Tweets` click on it and select at which Widget Area you want to show it.
+2. Go to `Dashboard >> Appearance >> Widgets` and you will find a widget `Latest Tweets` click on it and select at which Widget Area you want to show it.
 3. Fill Widget detail and click `Save`.
-4. You need Consumer Key, Consumer Secret, Access Token and Access Token Secret. To get this create an account at [Twitter Developers](https://apps.twitter.com/app/new).
+4. You need Consumer Key, Consumer Secret, Access Token and Access Token Secret.
+
+To get this create an account at [Twitter Developers](https://apps.twitter.com/app/new).
 
 == Installation ==
 
