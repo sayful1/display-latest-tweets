@@ -2,8 +2,8 @@
 Contributors: sayful
 Tags: tweets, twitter tweets, widget, twitter user timeline, twitter follow button, follow, follow button, sharing, social, social plugin, social sharing
 Requires at least: 4.0
-Tested up to: 4.8
-Stable tag: 2.0.0
+Tested up to: 4.9
+Stable tag: 2.1.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -53,6 +53,12 @@ Do you have questions or issues with Display Latest Tweets? [Ask for support her
 2. Screenshot of Display Latest Tweets Widget Front-end at Twenty Fifteen theme
 
 == Changelog ==
+
+= 2.1.0 - 2018-02-16 =
+* Feature - Add transient option replacing cache option to improve performance.
+* Dev - Update Twitter_API_WordPress core code.
+* Dev - Update Display_Latest_Tweets_Widget core code.
+
 
 = 2.0.0 - 2017-06-16 =
 * New     - Add cache option to improve performance

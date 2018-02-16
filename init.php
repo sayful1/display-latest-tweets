@@ -3,12 +3,12 @@
  * Plugin Name: 	Display Latest Tweets
  * Plugin URI: 		http://wordpress.org/plugins/display-latest-tweets/
  * Description: 	A widget that displays your recent tweets from twitter.
- * Version: 		2.0.0
+ * Version: 		2.1.0
  * Author: 			Sayful Islam
  * Author URI: 		https://profiles.wordpress.org/sayful/
  * Text Domain: 	display-latest-tweets
- * License: 		GPLv2 or later
- * License URI:		http://www.gnu.org/licenses/gpl-2.0.txt
+ * License: 		GPLv3
+ * License URI:		http://www.gnu.org/licenses/gpl-3.0.txt
  */
 
 // If this file is called directly, abort.
@@ -16,7 +16,7 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-if ( ! class_exists( 'Display_Latest_Tweets' ) ):
+if ( ! class_exists( 'Display_Latest_Tweets' ) ) {
 
 	class Display_Latest_Tweets {
 
@@ -27,11 +27,10 @@ if ( ! class_exists( 'Display_Latest_Tweets' ) ):
 		 */
 		protected static $instance = null;
 
-
 		/**
 		 * Return an instance of this class.
 		 *
-		 * @return Display_Latest_Tweets|object
+		 * @return Display_Latest_Tweets
 		 */
 		public static function instance() {
 			// If the single instance hasn't been set, set it now.
@@ -66,21 +65,17 @@ if ( ! class_exists( 'Display_Latest_Tweets' ) ):
                     padding: 0;
                     list-style-type: none;
                 }
-
                 .widget_display_latest_tweets ul li {
                     border-top: 1px solid rgba(0, 0, 0, 0.1);
                     padding: 1em 0;
                 }
-
                 .widget_display_latest_tweets ul li:first-child {
                     border-top: 0 none;
                     padding-top: 0;
                 }
-
                 .widget_display_latest_tweets ul li a {
                     display: inline;
                 }
-
                 .widget_display_latest_tweets span {
                     display: block;
                     margin-top: 0.5em;
@@ -89,8 +84,8 @@ if ( ! class_exists( 'Display_Latest_Tweets' ) ):
 			<?php
 		}
 	}
+}
 
-endif;
 
 /**
  * Begins execution of the plugin.

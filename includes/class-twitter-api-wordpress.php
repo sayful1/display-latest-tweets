@@ -1,11 +1,20 @@
 <?php
-/**
- * Twitter-WordPress-HTTP-Client
- * A class powered by WordPress API for for consuming Twitter API.
- */
-if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
+// If this file is called directly, abort.
+if ( ! defined( 'WPINC' ) ) {
+	die;
+}
 
+if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
+	/**
+	 * Twitter-WordPress-HTTP-Client
+	 * A class powered by WordPress API for for consuming Twitter API.
+	 */
 	class Twitter_API_WordPress {
+
+		/**
+		 * Twitter API Endpoint for user timeline
+		 */
+		const USER_TIMELINE = 'https://api.twitter.com/1.1/statuses/user_timeline.json';
 
 		/** @var string OAuth access token */
 		private $oauth_access_token;
@@ -34,8 +43,12 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		/** @var string Request method or HTTP verb */
 		private $request_method;
 
-		/** Class constructor */
-		public function __construct( $settings ) {
+		/**
+		 * Twitter_API_WordPress constructor.
+		 *
+		 * @param array $settings
+		 */
+		public function __construct( $settings = array() ) {
 
 			if ( ! isset( $settings['oauth_access_token'] )
 			     || ! isset( $settings['oauth_access_token_secret'] )
@@ -51,13 +64,30 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 			$this->consumer_secret           = $settings['consumer_secret'];
 		}
 
+		/**
+		 * Get user timeline
+		 *
+		 * @param int $count
+		 *
+		 * @return string
+		 */
+		public function user_timeline( $count = 5 ) {
+			$timeline = $this
+				->setRequestMethod( 'GET' )
+				->set_get_field( array( 'count' => intval( $count ) ) )
+				->build_oauth( self::USER_TIMELINE )
+				->process_request();
+
+			return json_decode( $timeline );
+		}
+
 
 		/**
 		 * Store the POST parameters
 		 *
 		 * @param array $array array of POST parameters
 		 *
-		 * @return $this
+		 * @return $this|WP_Error
 		 */
 		public function set_post_fields( array $array ) {
 			$this->post_fields = $array;
@@ -84,17 +114,14 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 * Build, generate and include the OAuth signature to the OAuth credentials
 		 *
 		 * @param string $request_url Twitter endpoint to send the request to
-		 * @param string $request_method Request HTTP verb eg GET or POST
 		 *
 		 * @return Twitter_API_WordPress|WP_Error
 		 */
-		public function build_oauth( $request_url, $request_method ) {
-			if ( ! in_array( strtolower( $request_method ), array( 'post', 'get' ) ) ) {
-				return new WP_Error( 'invalid_request', 'Request method must be either POST or GET' );
-			}
+		public function build_oauth( $request_url ) {
+			$request_method = $this->getRequestMethod();
 
 			$oauth_credentials = array(
-				'oauth_consumer_key'     => $this->consumer_key,
+				'oauth_consumer_key'     => $this->getConsumerKey(),
 				'oauth_nonce'            => time(),
 				'oauth_signature_method' => 'HMAC-SHA1',
 				'oauth_token'            => $this->oauth_access_token,
@@ -102,15 +129,28 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 				'oauth_version'          => '1.0'
 			);
 
-			if ( $this->is_get_method() ) {
-				// remove question mark(?) from the query string
-				$get_fields = str_replace( '?', '', explode( '&', $this->get_field ) );
+			if ( "GET" == $request_method ) {
+				if ( is_string( $this->getGetField() ) ) {
+					// remove question mark(?) from the query string
+					$get_fields = str_replace( '?', '', explode( '&', $this->getGetField() ) );
+					$params     = array();
+					foreach ( $get_fields as $field ) {
+						// split and add the GET key-value pair to the post array.
+						// GET query are always added to the signature base string
+						$split = explode( '=', $field );
 
-				foreach ( $get_fields as $field ) {
-					// split and add the GET key-value pair to the post array.
-					// GET query are always added to the signature base string
-					$split                          = explode( '=', $field );
-					$oauth_credentials[ $split[0] ] = $split[1];
+						$params[ $split[0] ] = $split[1];
+					}
+
+					foreach ( $params as $key => $value ) {
+						$oauth_credentials[ $key ] = $value;
+					}
+				}
+
+				if ( is_array( $this->getGetField() ) ) {
+					foreach ( $this->getGetField() as $key => $value ) {
+						$oauth_credentials[ $key ] = $value;
+					}
 				}
 			}
 
@@ -124,8 +164,6 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 
 			// save the OAuth Details
 			$this->oauth_details = $oauth_credentials;
-
-			$this->request_method = $request_method;
 
 			return $this;
 		}
@@ -191,7 +229,11 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 
 
 			// add the GET parameter to the Twitter request url or endpoint
-			$url = $this->request_url . $this->get_field;
+			if ( is_array( $this->getGetField() ) ) {
+				$url = add_query_arg( $this->getGetField(), $this->request_url );
+			} else {
+				$url = $this->request_url . $this->getGetField();
+			}
 
 			$response = wp_remote_get( $url, $args );
 
@@ -223,7 +265,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 * @return string
 		 */
 		public function getRequestMethod() {
-			return strtolower( $this->request_method );
+			return $this->request_method;
 		}
 
 		/**
@@ -238,7 +280,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 				return new WP_Error( 'invalid_request_method', 'Request method must be either POST or GET' );
 			}
 
-			$this->request_method = $request_method;
+			$this->request_method = strtoupper( $request_method );
 
 			return $this;
 		}
@@ -249,7 +291,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 * @return bool
 		 */
 		private function is_get_method() {
-			return ( 'get' === $this->getRequestMethod() );
+			return ( 'GET' === $this->getRequestMethod() );
 		}
 
 		/**
@@ -258,7 +300,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 * @return bool
 		 */
 		private function is_post_method() {
-			return ( 'post' === $this->getRequestMethod() );
+			return ( 'POST' === $this->getRequestMethod() );
 		}
 
 		/**
@@ -286,6 +328,20 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 			}
 
 			return false;
+		}
+
+		/**
+		 * @return string|array
+		 */
+		public function getGetField() {
+			return $this->get_field;
+		}
+
+		/**
+		 * @return string
+		 */
+		public function getConsumerKey() {
+			return $this->consumer_key;
 		}
 	}
 }
