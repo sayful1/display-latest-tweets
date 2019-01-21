@@ -1,7 +1,7 @@
 <?php
-// If this file is called directly, abort.
-if ( ! defined( 'WPINC' ) ) {
-	die;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	die; // If this file is called directly, abort.
 }
 
 if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
@@ -16,31 +16,67 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 */
 		const USER_TIMELINE = 'https://api.twitter.com/1.1/statuses/user_timeline.json';
 
-		/** @var string OAuth access token */
-		private $oauth_access_token;
-
-		/** @var string OAuth access token secrete */
-		private $oauth_access_token_secret;
-
-		/** @var string Consumer key */
+		/**
+		 * Consumer key
+		 *
+		 * @var string
+		 */
 		private $consumer_key;
 
-		/** @var string consumer secret */
+		/**
+		 * Consumer secret
+		 *
+		 * @var string
+		 */
 		private $consumer_secret;
 
-		/** @var array POST parameters */
+		/**
+		 * OAuth access token
+		 *
+		 * @var string
+		 */
+		private $access_token;
+
+		/**
+		 * OAuth access token secrete
+		 *
+		 * @var string
+		 */
+		private $access_token_secret;
+
+		/**
+		 * POST parameters
+		 *
+		 * @var array
+		 */
 		private $post_fields;
 
-		/** @var string GET parameters */
+		/**
+		 * GET parameters
+		 *
+		 * @var string
+		 */
 		private $get_field;
 
-		/** @var array OAuth credentials */
+		/**
+		 * OAuth credentials
+		 *
+		 * @var array
+		 */
 		private $oauth_details;
 
-		/** @var string Twitter's request URL or endpoint */
+		/**
+		 * Twitter's request URL or endpoint
+		 *
+		 * @var string
+		 */
 		private $request_url;
 
-		/** @var string Request method or HTTP verb */
+		/**
+		 * Request method or HTTP verb
+		 *
+		 * @var string
+		 */
 		private $request_method;
 
 		/**
@@ -49,19 +85,43 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 * @param array $settings
 		 */
 		public function __construct( $settings = array() ) {
+			$this->initiate_settings( $settings );
+		}
 
-			if ( ! isset( $settings['oauth_access_token'] )
-			     || ! isset( $settings['oauth_access_token_secret'] )
-			     || ! isset( $settings['consumer_key'] )
-			     || ! isset( $settings['consumer_secret'] )
-			) {
-				return new WP_Error( 'twitter_param_incomplete', 'Make sure you are passing in the correct parameters' );
+		/**
+		 * Initiate API settings
+		 *
+		 * @param array $args
+		 */
+		public function initiate_settings( array $args = array() ) {
+			$args = wp_parse_args( $args, array(
+				'consumer_key'        => '',
+				'consumer_secret'     => '',
+				'access_token'        => '',
+				'access_token_secret' => '',
+			) );
+			$this->set_consumer_key( $args['consumer_key'] );
+			$this->set_consumer_secret( $args['consumer_secret'] );
+			$this->set_access_token( $args['access_token'] );
+			$this->set_access_token_secret( $args['access_token_secret'] );
+		}
+
+		/**
+		 * Check if API setting valid
+		 *
+		 * @return bool
+		 */
+		private function is_settings_valid() {
+			$key          = $this->get_consumer_key();
+			$secret       = $this->get_consumer_secret();
+			$token        = $this->get_access_token();
+			$token_secret = $this->get_access_token_secret();
+
+			if ( empty( $key ) || empty( $secret ) || empty( $token ) || empty( $token_secret ) ) {
+				return false;
 			}
 
-			$this->oauth_access_token        = $settings['oauth_access_token'];
-			$this->oauth_access_token_secret = $settings['oauth_access_token_secret'];
-			$this->consumer_key              = $settings['consumer_key'];
-			$this->consumer_secret           = $settings['consumer_secret'];
+			return true;
 		}
 
 		/**
@@ -69,11 +129,15 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 *
 		 * @param int $count
 		 *
-		 * @return string
+		 * @return array|\WP_Error
 		 */
-		public function user_timeline( $count = 5 ) {
+		public function get_user_timeline( $count = 5 ) {
+			if ( ! $this->is_settings_valid() ) {
+				return new \WP_Error( 'twitter_incomplete_parameters', 'Make sure you are passing in the correct parameters' );
+			}
+
 			$timeline = $this
-				->setRequestMethod( 'GET' )
+				->set_request_method( 'GET' )
 				->set_get_field( array( 'count' => intval( $count ) ) )
 				->build_oauth( self::USER_TIMELINE )
 				->process_request();
@@ -87,7 +151,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 *
 		 * @param array $array array of POST parameters
 		 *
-		 * @return $this|WP_Error
+		 * @return $this
 		 */
 		public function set_post_fields( array $array ) {
 			$this->post_fields = $array;
@@ -115,24 +179,24 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 *
 		 * @param string $request_url Twitter endpoint to send the request to
 		 *
-		 * @return Twitter_API_WordPress|WP_Error
+		 * @return Twitter_API_WordPress|\WP_Error
 		 */
 		public function build_oauth( $request_url ) {
-			$request_method = $this->getRequestMethod();
+			$request_method = $this->get_request_method();
 
 			$oauth_credentials = array(
-				'oauth_consumer_key'     => $this->getConsumerKey(),
+				'oauth_consumer_key'     => $this->get_consumer_key(),
 				'oauth_nonce'            => time(),
 				'oauth_signature_method' => 'HMAC-SHA1',
-				'oauth_token'            => $this->oauth_access_token,
+				'oauth_token'            => $this->access_token,
 				'oauth_timestamp'        => time(),
 				'oauth_version'          => '1.0'
 			);
 
-			if ( "GET" == $request_method ) {
-				if ( is_string( $this->getGetField() ) ) {
+			if ( $this->is_get_method() ) {
+				if ( is_string( $this->get_get_field() ) ) {
 					// remove question mark(?) from the query string
-					$get_fields = str_replace( '?', '', explode( '&', $this->getGetField() ) );
+					$get_fields = str_replace( '?', '', explode( '&', $this->get_get_field() ) );
 					$params     = array();
 					foreach ( $get_fields as $field ) {
 						// split and add the GET key-value pair to the post array.
@@ -147,8 +211,8 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 					}
 				}
 
-				if ( is_array( $this->getGetField() ) ) {
-					foreach ( $this->getGetField() as $key => $value ) {
+				if ( is_array( $this->get_get_field() ) ) {
+					foreach ( $this->get_get_field() as $key => $value ) {
 						$oauth_credentials[ $key ] = $value;
 					}
 				}
@@ -196,7 +260,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		private function _generate_oauth_signature( $data ) {
 
 			// encode consumer and token secret keys and subsequently combine them using & to a query component
-			$hash_hmac_key = rawurlencode( $this->consumer_secret ) . '&' . rawurlencode( $this->oauth_access_token_secret );
+			$hash_hmac_key = rawurlencode( $this->consumer_secret ) . '&' . rawurlencode( $this->access_token_secret );
 
 			$oauth_signature = base64_encode( hash_hmac( 'sha1', $data, $hash_hmac_key, true ) );
 
@@ -229,10 +293,10 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 
 
 			// add the GET parameter to the Twitter request url or endpoint
-			if ( is_array( $this->getGetField() ) ) {
-				$url = add_query_arg( $this->getGetField(), $this->request_url );
+			if ( is_array( $this->get_get_field() ) ) {
+				$url = add_query_arg( $this->get_get_field(), $this->request_url );
 			} else {
-				$url = $this->request_url . $this->getGetField();
+				$url = $this->request_url . $this->get_get_field();
 			}
 
 			$response = wp_remote_get( $url, $args );
@@ -264,7 +328,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 *
 		 * @return string
 		 */
-		public function getRequestMethod() {
+		public function get_request_method() {
 			return $this->request_method;
 		}
 
@@ -275,9 +339,9 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 *
 		 * @return Twitter_API_WordPress|WP_Error
 		 */
-		public function setRequestMethod( $request_method ) {
+		public function set_request_method( $request_method ) {
 			if ( ! in_array( strtolower( $request_method ), array( 'post', 'get' ) ) ) {
-				return new WP_Error( 'invalid_request_method', 'Request method must be either POST or GET' );
+				return new \WP_Error( 'invalid_request_method', 'Request method must be either POST or GET' );
 			}
 
 			$this->request_method = strtoupper( $request_method );
@@ -291,7 +355,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 * @return bool
 		 */
 		private function is_get_method() {
-			return ( 'GET' === $this->getRequestMethod() );
+			return ( 'GET' == $this->get_request_method() );
 		}
 
 		/**
@@ -300,7 +364,7 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		 * @return bool
 		 */
 		private function is_post_method() {
-			return ( 'POST' === $this->getRequestMethod() );
+			return ( 'POST' == $this->get_request_method() );
 		}
 
 		/**
@@ -331,17 +395,100 @@ if ( ! class_exists( 'Twitter_API_WordPress' ) ) {
 		}
 
 		/**
+		 * Get GET field
+		 *
 		 * @return string|array
 		 */
-		public function getGetField() {
+		public function get_get_field() {
 			return $this->get_field;
 		}
 
 		/**
+		 * Get consumer key
+		 *
 		 * @return string
 		 */
-		public function getConsumerKey() {
+		public function get_consumer_key() {
 			return $this->consumer_key;
+		}
+
+		/**
+		 * Set consumer key
+		 *
+		 * @param string $consumer_key
+		 *
+		 * @return self
+		 */
+		public function set_consumer_key( $consumer_key ) {
+			$this->consumer_key = $consumer_key;
+
+			return $this;
+		}
+
+		/**
+		 * Get consumer secret
+		 *
+		 * @return string
+		 */
+		public function get_consumer_secret() {
+			return $this->consumer_secret;
+		}
+
+		/**
+		 * Set consumer key
+		 *
+		 * @param string $consumer_secret
+		 *
+		 * @return self
+		 */
+		public function set_consumer_secret( $consumer_secret ) {
+			$this->consumer_secret = $consumer_secret;
+
+			return $this;
+		}
+
+		/**
+		 * Get access token
+		 *
+		 * @return string
+		 */
+		public function get_access_token() {
+			return $this->access_token;
+		}
+
+		/**
+		 * Set access token
+		 *
+		 * @param string $access_token
+		 *
+		 * @return self
+		 */
+		public function set_access_token( $access_token ) {
+			$this->access_token = $access_token;
+
+			return $this;
+		}
+
+		/**
+		 * Get access token secret
+		 *
+		 * @return string
+		 */
+		public function get_access_token_secret() {
+			return $this->access_token_secret;
+		}
+
+		/**
+		 * Set access token secret
+		 *
+		 * @param string $access_token_secret
+		 *
+		 * @return self
+		 */
+		public function set_access_token_secret( $access_token_secret ) {
+			$this->access_token_secret = $access_token_secret;
+
+			return $this;
 		}
 	}
 }

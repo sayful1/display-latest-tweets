@@ -1,7 +1,7 @@
 <?php
-// If this file is called directly, abort.
-if ( ! defined( 'WPINC' ) ) {
-	die;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	die; // If this file is called directly, abort.
 }
 
 if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
@@ -53,19 +53,22 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 
 			// retrieve cache contents on success
 			$settings         = array(
-				'oauth_access_token'        => isset( $instance['oauth_access_token'] ) ? $instance['oauth_access_token'] : null,
-				'oauth_access_token_secret' => isset( $instance['oauth_access_token_secret'] ) ? $instance['oauth_access_token_secret'] : null,
-				'consumer_key'              => isset( $instance['consumer_key'] ) ? $instance['consumer_key'] : null,
-				'consumer_secret'           => isset( $instance['consumer_secret'] ) ? $instance['consumer_secret'] : null,
+				'consumer_key'        => isset( $instance['consumer_key'] ) ? $instance['consumer_key'] : null,
+				'consumer_secret'     => isset( $instance['consumer_secret'] ) ? $instance['consumer_secret'] : null,
+				'access_token'        => isset( $instance['oauth_access_token'] ) ? $instance['oauth_access_token'] : null,
+				'access_token_secret' => isset( $instance['oauth_access_token_secret'] ) ? $instance['oauth_access_token_secret'] : null,
 			);
 			$limit            = isset( $instance['update_count'] ) ? intval( $instance['update_count'] ) : 5;
 			$twitter_duration = isset( $instance['twitter_duration'] ) ? intval( $instance['twitter_duration'] ) : 15;
 
 			// Get the tweets.
-			$tweets = $this->twitter_timeline( $settings, $limit, $twitter_duration );
+			$tweets = $this->get_twitter_timeline( $settings, $limit, $twitter_duration );
 
-
-			if ( ! empty( $tweets ) ) {
+			if ( is_wp_error( $tweets ) && current_user_can( 'manage_options' ) ) {
+				foreach ( $tweets->get_error_messages() as $message ) {
+					echo '<p>' . esc_html( $message ) . '</p>';
+				}
+			} elseif ( ! empty( $tweets ) ) {
 
 				echo '<ul class="tweets">';
 				foreach ( $tweets as $tweet ) {
@@ -230,21 +233,21 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 		 * @param int $limit
 		 * @param int $twitter_duration
 		 *
-		 * @return array|mixed
+		 * @return array|\WP_Error
 		 */
-		private function twitter_timeline( $settings, $limit = 5, $twitter_duration = 15 ) {
+		private function get_twitter_timeline( $settings, $limit = 5, $twitter_duration = 15 ) {
 			// Do we have this information in our transients already?
 			$tweets = get_transient( 'display_latest_tweets' );
 
 			if ( false === $tweets ) {
 				$twitter_instance = new Twitter_API_WordPress( $settings );
-				$timeline         = (array) $twitter_instance->user_timeline( $limit );
+				$timeline         = $twitter_instance->get_user_timeline( $limit );
+				if ( is_wp_error( $timeline ) ) {
+					return $timeline;
+				}
 
 				foreach ( $timeline as $tweet ) {
-					$tweets[] = array(
-						'text' => $tweet->text,
-						'time' => $tweet->created_at,
-					);
+					$tweets[] = array( 'text' => $tweet->text, 'time' => $tweet->created_at, );
 				}
 
 				$transient_expiration = ( intval( $twitter_duration ) * MINUTE_IN_SECONDS );
@@ -254,6 +257,11 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 			return $tweets;
 		}
 
+		/**
+		 * Transient timeout duration
+		 *
+		 * @return array
+		 */
 		private function twitter_duration() {
 			return array(
 				'5'    => __( '5 Minutes', 'display-latest-tweets' ),
@@ -275,6 +283,3 @@ if ( ! class_exists( 'Display_Latest_Tweets_Widget' ) ) {
 		}
 	}
 }
-
-// register Display_Latest_Tweets_Widget widget
-add_action( 'widgets_init', array( 'Display_Latest_Tweets_Widget', 'register' ) );

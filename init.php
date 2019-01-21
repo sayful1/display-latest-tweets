@@ -3,9 +3,9 @@
  * Plugin Name: 	Display Latest Tweets
  * Plugin URI: 		http://wordpress.org/plugins/display-latest-tweets/
  * Description: 	Display a list of a user's latest tweets from twitter.
- * Version: 		2.1.0
+ * Version: 		2.1.1
  * Author: 			Sayful Islam
- * Author URI: 		https://profiles.wordpress.org/sayful/
+ * Author URI: 		https://sayfulislam.com/
  * Text Domain: 	display-latest-tweets
  * License: 		GPLv3
  * License URI:		http://www.gnu.org/licenses/gpl-3.0.txt
@@ -23,31 +23,34 @@ if ( ! class_exists( 'Display_Latest_Tweets' ) ) {
 		/**
 		 * Instance of this class.
 		 *
-		 * @var object
+		 * @var self
 		 */
 		protected static $instance = null;
 
 		/**
 		 * Return an instance of this class.
 		 *
-		 * @return Display_Latest_Tweets
+		 * @return self
 		 */
 		public static function instance() {
-			// If the single instance hasn't been set, set it now.
 			if ( is_null( self::$instance ) ) {
 				self::$instance = new self;
+
+				self::$instance->initialize();
 			}
 
 			return self::$instance;
 		}
 
 		/**
-		 * Display_Latest_Tweets constructor.
+		 * initialize plugin files
 		 */
-		public function __construct() {
+		public function initialize() {
 			require_once dirname( __FILE__ ) . '/includes/class-twitter-api-wordpress.php';
 			require_once dirname( __FILE__ ) . '/includes/widget-display-latest-tweets.php';
 
+			// register Display_Latest_Tweets_Widget widget
+			add_action( 'widgets_init', array( 'Display_Latest_Tweets_Widget', 'register' ) );
 			add_action( 'wp_head', array( $this, 'widget_style' ) );
 		}
 
